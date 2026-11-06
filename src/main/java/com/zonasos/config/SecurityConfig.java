@@ -1,7 +1,7 @@
 package com.zonasos.config;
 
 import com.zonasos.security.JwtAuthenticationFilter;
-import com.zonasos.security.OAuth2SuccessHandler; // 🌟 NUEVO IMPORT
+import com.zonasos.security.OAuth2SuccessHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -25,7 +25,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final OAuth2SuccessHandler oAuth2SuccessHandler; // 🌟 INYECTAR
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, OAuth2SuccessHandler oAuth2SuccessHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -37,34 +37,31 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                // ✅ MANEJO DE SESIONES (IF_REQUIRED es necesario para el OAuth de Google)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .maximumSessions(1)
                         .expiredUrl("/login?expired=true")
                 )
-
-                // 🌟 ACTIVAR OAUTH2 LOGIN
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2SuccessHandler)
                 )
-
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-
-                        // 🌟 PERMITIR RUTAS DE OAUTH (Google/GitHub)
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-
-                        // 🌟 RUTA PÚBLICA PARA LA COMUNIDAD (Sin token)
+                        
+                        // Ruta pública para la comunidad
                         .requestMatchers(HttpMethod.GET, "/api/alertas/publicas").permitAll()
 
-                        // RUTAS PROTEGIDAS
+                        // 🌟 NUEVO: Permitir leer comentarios en la vista pública (GET)
+                        .requestMatchers(HttpMethod.GET, "/api/opiniones/**").permitAll()
+
+                        // Rutas protegidas (POST, PUT, DELETE)
+                        .requestMatchers("/api/comentarios/**").hasAnyRole("CIUDADANO", "OPERADOR", "ADMIN")
                         .requestMatchers("/api/alertas/**").hasAnyRole("CIUDADANO", "OPERADOR", "ADMIN")
                         .requestMatchers("/api/ciudades/**").hasAnyRole("ADMIN", "OPERADOR")
                         .requestMatchers("/api/tipos-emergencia/**").hasAnyRole("ADMIN", "OPERADOR")
                         .requestMatchers("/api/opiniones/**").hasAnyRole("CIUDADANO", "OPERADOR", "ADMIN")
-                        .requestMatchers("/api/comentarios/**").hasAnyRole("OPERADOR", "ADMIN")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMIN", "OPERADOR")
                         .anyRequest().authenticated()
                 )

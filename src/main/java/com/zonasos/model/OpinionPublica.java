@@ -2,8 +2,6 @@ package com.zonasos.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
-
 import java.time.LocalDateTime;
 
 @Document(collection = "opiniones_publicas")
@@ -15,14 +13,13 @@ public class OpinionPublica {
     private String comentario;
     private Boolean verificacion;
     private LocalDateTime fecha;
+    private String imagenesUrls;
+    
+    // 🌟 NUEVOS CAMPOS: Ahora son Strings simples en lugar de @DBRef
+    private String alertaId;
+    private String usuarioId;
+    private String usuarioNombre;
 
-    @DBRef
-    private Alerta alerta;
-
-    @DBRef
-    private Usuario usuario;
-
-    // Constructor vacío
     public OpinionPublica() {}
 
     // Getters y Setters
@@ -38,9 +35,16 @@ public class OpinionPublica {
     public LocalDateTime getFecha() { return fecha; }
     public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }
 
-    public Alerta getAlerta() { return alerta; }
-    public void setAlerta(Alerta alerta) { this.alerta = alerta; }
+    public String getImagenesUrls() { return imagenesUrls; }
+    public void setImagenesUrls(String imagenesUrls) { this.imagenesUrls = imagenesUrls; }
 
-    public Usuario getUsuario() { return usuario; }
-    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
+    // 🌟 GETTERS Y SETTERS DE LOS NUEVOS CAMPOS
+    public String getAlertaId() { return alertaId; }
+    public void setAlertaId(String alertaId) { this.alertaId = alertaId; }
+
+    public String getUsuarioId() { return usuarioId; }
+    public void setUsuarioId(String usuarioId) { this.usuarioId = usuarioId; }
+
+    public String getUsuarioNombre() { return usuarioNombre; }
+    public void setUsuarioNombre(String usuarioNombre) { this.usuarioNombre = usuarioNombre; }
 }

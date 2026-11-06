@@ -38,4 +38,7 @@ public class OpinionPublicaService {
     public void eliminar(String id) {
         opinionPublicaRepository.deleteById(id);
     }
+        public List<OpinionPublica> obtenerPorAlerta(String alertaId) {
+        return opinionPublicaRepository.findByAlertaId(alertaId);
+    }
 }

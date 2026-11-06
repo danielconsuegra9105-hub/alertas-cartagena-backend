@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -65,15 +66,39 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             // 5. Generar nuestro token JWT
             String token = jwtService.generateTokenForOAuth(usuario.getCorreo(), usuario.getRol());
 
-            // 6. Redirigir al Frontend de Angular con el token en la URL
-            String targetUrl = "http://localhost:4200/oauth-success?token=" + token;
+            // 6. Detectar si la petición proviene de la App Móvil (Android/Flutter) o del Frontend Web (Angular)
+            String userAgent = request.getHeader("User-Agent");
+            String referer = request.getHeader("Referer");
+
+            boolean esMovil = (userAgent != null && (userAgent.contains("Android") || userAgent.contains("Mobile"))) 
+                    || (referer == null || !referer.contains("4200"));
+
+            String targetUrl;
+            if (esMovil) {
+                // Redirección con Deep Link para Flutter (capturado por flutter_web_auth_2)
+                targetUrl = UriComponentsBuilder.fromUriString("zonasos://oauth-success")
+                        .queryParam("token", token)
+                        .queryParam("email", usuario.getCorreo())
+                        .queryParam("rol", usuario.getRol())
+                        .build().toUriString();
+            } else {
+                // Redirección para Angular Web
+                targetUrl = "http://localhost:4200/oauth-success?token=" + token;
+            }
+
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
         } catch (Exception e) {
-            // 🚨 SI ALGO FALLA, evita el error 500 y manda al usuario al login
+            // 🚨 SI ALGO FALLA, evita el error 500 y manda al usuario al login correspondiente
             System.err.println("Error en OAuth2SuccessHandler: " + e.getMessage());
             e.printStackTrace();
-            getRedirectStrategy().sendRedirect(request, response, "http://localhost:4200/login?error=oauth");
+
+            String userAgent = request.getHeader("User-Agent");
+            if (userAgent != null && (userAgent.contains("Android") || userAgent.contains("Mobile"))) {
+                getRedirectStrategy().sendRedirect(request, response, "zonasos://oauth-error");
+            } else {
+                getRedirectStrategy().sendRedirect(request, response, "http://localhost:4200/login?error=oauth");
+            }
         }
     }
 }

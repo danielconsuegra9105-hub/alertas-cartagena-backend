@@ -32,6 +32,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
+        // 🌟 PASO 1: EXCEPCIÓN PARA RUTAS PÚBLICAS
+        // Si la petición es para la API pública, ignoramos el token y dejamos pasar
+        if (request.getServletPath().startsWith("/api/public")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         // Ignorar peticiones CORS Preflight (OPTIONS)
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);
@@ -40,7 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // Si no hay header Authorization con Bearer, dejamos pasar (endpoints publicos como /login y /register)
+        // Si no hay header Authorization con Bearer, dejamos pasar
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
@@ -68,14 +75,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
 
         } catch (ExpiredJwtException e) {
-            // Token expirado -> 401 con mensaje claro
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"error\":\"Token expirado\",\"message\":\"La sesion ha expirado, inicie sesion nuevamente\"}");
 
         } catch (JwtException | UsernameNotFoundException e) {
-            // Token invalido o usuario no encontrado en MongoDB -> 401
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");

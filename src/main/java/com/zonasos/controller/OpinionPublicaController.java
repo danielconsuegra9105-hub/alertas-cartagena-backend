@@ -43,4 +43,9 @@ public class OpinionPublicaController {
     public void eliminar(@PathVariable String id) {
         opinionPublicaService.eliminar(id);
     }
+        // 🌟 MÉTODO NUEVO: Buscar opiniones por el ID de la alerta
+    @GetMapping("/alerta/{alertaId}")
+    public List<OpinionPublica> obtenerPorAlerta(@PathVariable String alertaId) {
+        return opinionPublicaService.obtenerPorAlerta(alertaId);
+    }
 }
