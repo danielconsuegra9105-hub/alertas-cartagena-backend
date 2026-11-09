@@ -5,6 +5,7 @@ import com.zonasos.repository.UsuarioRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -19,24 +20,29 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+    private final String frontendUrl;
 
-    public OAuth2SuccessHandler(JwtService jwtService, UsuarioRepository usuarioRepository) {
+    public OAuth2SuccessHandler(JwtService jwtService,
+                                UsuarioRepository usuarioRepository,
+                                @Value("${app.frontend-url}") String frontendUrl) {
         this.jwtService = jwtService;
         this.usuarioRepository = usuarioRepository;
+        // Quita "/" final para no generar "//oauth-success"
+        this.frontendUrl = frontendUrl.replaceAll("/+$", "");
     }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         try {
-            // 1. Extraer los datos que nos da el proveedor (Google o GitHub)
+            // 1. Datos del proveedor (Google o GitHub)
             OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
             String email = oAuth2User.getAttribute("email");
             String name = oAuth2User.getAttribute("name");
             String login = oAuth2User.getAttribute("login"); // GitHub usa 'login'
 
-            // 2. Plan de respaldo si el correo o el nombre vienen vacíos (típico en GitHub)
+            // 2. Respaldo si el correo o el nombre vienen vacíos (típico en GitHub)
             if (email == null || email.isEmpty()) {
                 if (login != null) {
                     email = login + "@github.com";
@@ -49,10 +55,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 name = (login != null) ? login : email.split("@")[0];
             }
 
-            // 3. Buscar si el usuario ya existe en MongoDB
+            // 3. Buscar usuario en MongoDB
             Usuario usuario = usuarioRepository.findByCorreo(email);
 
-            // 4. Si no existe, lo creamos como CIUDADANO
+            // 4. Si no existe, crearlo como CIUDADANO
             if (usuario == null) {
                 usuario = new Usuario();
                 usuario.setCorreo(email);
@@ -63,42 +69,23 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 usuarioRepository.save(usuario);
             }
 
-            // 5. Generar nuestro token JWT
+            // 5. Generar JWT
             String token = jwtService.generateTokenForOAuth(usuario.getCorreo(), usuario.getRol());
 
-            // 6. Detectar si la petición proviene de la App Móvil (Android/Flutter) o del Frontend Web (Angular)
-            String userAgent = request.getHeader("User-Agent");
-            String referer = request.getHeader("Referer");
-
-            boolean esMovil = (userAgent != null && (userAgent.contains("Android") || userAgent.contains("Mobile"))) 
-                    || (referer == null || !referer.contains("4200"));
-
-            String targetUrl;
-            if (esMovil) {
-                // Redirección con Deep Link para Flutter (capturado por flutter_web_auth_2)
-                targetUrl = UriComponentsBuilder.fromUriString("zonasos://oauth-success")
-                        .queryParam("token", token)
-                        .queryParam("email", usuario.getCorreo())
-                        .queryParam("rol", usuario.getRol())
-                        .build().toUriString();
-            } else {
-                // Redirección para Angular Web
-                targetUrl = "http://localhost:4200/oauth-success?token=" + token;
-            }
+            // 6. Redirigir al frontend web (Angular). La URL viene de app.frontend-url.
+            //    TODO Flutter: cuando se retome la app móvil, agregar aquí el deep link zonasos://oauth-success
+            //    decidiendo por un parámetro explícito, no por el Referer.
+            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl)
+                    .path("/oauth-success")
+                    .queryParam("token", token)
+                    .build().toUriString();
 
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
         } catch (Exception e) {
-            // 🚨 SI ALGO FALLA, evita el error 500 y manda al usuario al login correspondiente
             System.err.println("Error en OAuth2SuccessHandler: " + e.getMessage());
             e.printStackTrace();
-
-            String userAgent = request.getHeader("User-Agent");
-            if (userAgent != null && (userAgent.contains("Android") || userAgent.contains("Mobile"))) {
-                getRedirectStrategy().sendRedirect(request, response, "zonasos://oauth-error");
-            } else {
-                getRedirectStrategy().sendRedirect(request, response, "http://localhost:4200/login?error=oauth");
-            }
+            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=oauth");
         }
     }
 }
