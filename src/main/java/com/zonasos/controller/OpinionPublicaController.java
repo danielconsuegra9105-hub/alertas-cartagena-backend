@@ -4,6 +4,7 @@ import com.zonasos.model.OpinionPublica;
 import com.zonasos.service.OpinionPublicaService;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -29,6 +30,8 @@ public class OpinionPublicaController {
 
     @PostMapping
     public OpinionPublica crear(@RequestBody OpinionPublica opinionPublica) {
+        // La fecha la pone el servidor (hora de Colombia), no el navegador
+        opinionPublica.setFecha(LocalDateTime.now());
         return opinionPublicaService.crear(opinionPublica);
     }
 

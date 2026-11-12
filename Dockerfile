@@ -11,6 +11,6 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 # Render free tier = 512 MB RAM
-ENV JAVA_TOOL_OPTIONS="-Xmx350m -XX:+UseSerialGC"
+ENV JAVA_TOOL_OPTIONS="-Xmx350m -XX:+UseSerialGC -Duser.timezone=America/Bogota"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

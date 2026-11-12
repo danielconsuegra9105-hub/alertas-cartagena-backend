@@ -43,17 +43,6 @@ public class PublicController {
     }
 
     /**
-     * 3. Permite que cualquier ciudadano cree un comentario o suba una evidencia.
-     * Ruta: POST /api/public/comentarios
-     */
-    @PostMapping("/comentarios")
-    public ResponseEntity<OpinionPublica> crearComentarioPublico(@RequestBody OpinionPublica nuevaOpinion) {
-        // Guarda la opinión en la colección 'opiniones_publicas' de MongoDB
-        OpinionPublica guardado = opinionRepository.save(nuevaOpinion);
-        return ResponseEntity.ok(guardado);
-    }
-
-    /**
      * Endpoint informativo sobre el sistema.
      * Ruta: GET /api/public/info
      */
