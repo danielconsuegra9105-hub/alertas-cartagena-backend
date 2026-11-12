@@ -3,6 +3,8 @@ package com.zonasos.controller;
 import com.zonasos.model.Usuario;
 import com.zonasos.security.JwtService;
 import com.zonasos.service.UsuarioService;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -10,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,9 +26,9 @@ public class AuthController {
     private final UsuarioService usuarioService;
 
     public AuthController(AuthenticationManager authenticationManager,
-                          UserDetailsService userDetailsService,
-                          JwtService jwtService,
-                          UsuarioService usuarioService) {
+UserDetailsService userDetailsService,
+JwtService jwtService,
+UsuarioService usuarioService) {
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
         this.jwtService = jwtService;
@@ -55,6 +58,20 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(401).body("Credenciales inválidas");
         }
+    }
+
+    // Inicio del login OAuth desde la app móvil (Flutter):
+    // marca la sesión como "móvil" y continúa con el flujo normal de Google/GitHub.
+    @GetMapping("/mobile/{provider}")
+    public void iniciarOAuthMovil(@PathVariable String provider,
+                            HttpSession session,
+                            HttpServletResponse response) throws IOException {
+        if (!provider.equals("google") && !provider.equals("github")) {
+            response.sendError(400, "Proveedor no soportado");
+            return;
+        }
+        session.setAttribute("client", "mobile");
+        response.sendRedirect("/oauth2/authorization/" + provider);
     }
 
     @PostMapping("/registro")

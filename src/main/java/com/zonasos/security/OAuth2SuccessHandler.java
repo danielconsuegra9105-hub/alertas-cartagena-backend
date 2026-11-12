@@ -5,6 +5,7 @@ import com.zonasos.repository.UsuarioRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -34,6 +35,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
+        // La app móvil marca la sesión en /api/auth/mobile/{provider}
+        HttpSession session = request.getSession(false);
+        boolean esMovil = session != null && "mobile".equals(session.getAttribute("client"));
+        if (session != null) {
+            session.removeAttribute("client");
+        }
+
         try {
             // 1. Datos del proveedor (Google o GitHub)
             OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
@@ -72,20 +80,32 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             // 5. Generar JWT
             String token = jwtService.generateTokenForOAuth(usuario.getCorreo(), usuario.getRol());
 
-            // 6. Redirigir al frontend web (Angular). La URL viene de app.frontend-url.
-            //    TODO Flutter: cuando se retome la app móvil, agregar aquí el deep link zonasos://oauth-success
-            //    decidiendo por un parámetro explícito, no por el Referer.
-            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl)
-                    .path("/oauth-success")
-                    .queryParam("token", token)
-                    .build().toUriString();
+            // 6. Redirigir: app móvil (deep link) o frontend web (Angular)
+            String targetUrl;
+            if (esMovil) {
+                targetUrl = UriComponentsBuilder.fromUriString("zonasos://oauth-success")
+                        .queryParam("token", token)
+                        .queryParam("email", usuario.getCorreo())
+                        .queryParam("rol", usuario.getRol())
+                        .queryParam("id", usuario.getId())
+                        .build().toUriString();
+            } else {
+                targetUrl = UriComponentsBuilder.fromUriString(frontendUrl)
+                        .path("/oauth-success")
+                        .queryParam("token", token)
+                        .build().toUriString();
+            }
 
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
         } catch (Exception e) {
             System.err.println("Error en OAuth2SuccessHandler: " + e.getMessage());
             e.printStackTrace();
-            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=oauth");
+            if (esMovil) {
+                getRedirectStrategy().sendRedirect(request, response, "zonasos://oauth-error");
+            } else {
+                getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=oauth");
+            }
         }
     }
 }
